@@ -1,27 +1,11 @@
-import Hapi from "@hapi/hapi";
-("use strict");
-const match = {
-  sport_id: "1",
-  match_name: "Test",
-  match_start_date: "2024-05-08",
-  scores: "2-1",
-};
+"use strict";
 
-function getSportData() {
-  return fetch(
-    "https://raw.githubusercontent.com/PolinaKuzmuk/backend/main/db.json"
-  ).then((responce) => responce.json());
-}
+const Hapi = require("@hapi/hapi");
 
-function createMatch(match) {
-  return fetch(
-    "https://raw.githubusercontent.com/PolinaKuzmuk/backend/main/db.json",
-    {
-      method: "POST",
-      headers: { "Content-type": "application/json" },
-      body: JSON.stringify(match),
-    }
-  );
+const BASE_URL = "https://664708a751e227f23ab0ca7d.mockapi.io/";
+
+function getSportData(endpoint) {
+  return fetch(`${BASE_URL}${endpoint}`).then((responce) => responce.json());
 }
 
 const init = async () => {
@@ -32,17 +16,17 @@ const init = async () => {
 
   server.route({
     method: "GET",
-    path: "/",
+    path: "/sports",
     handler: async (request, h) => {
-      return await getSportData();
+      return await getSportData("sports");
     },
   });
 
   server.route({
     method: "GET",
-    path: "/sports",
+    path: "/matches",
     handler: async (request, h) => {
-      return await getSportData().then((responce) => responce.sport_list);
+      return await getSportData("matches");
     },
   });
 
@@ -50,25 +34,83 @@ const init = async () => {
     method: "GET",
     path: "/sports/{id}",
     handler: async (request, h) => {
-      return await getSportData().then((responce) =>
-        responce.match_list.filter(
-          (item) => item.sport_id === request.params.id
-        )
+      return await getSportData("matches").then((responce) =>
+        responce.filter((item) => item.sport_id === request.params.id)
       );
     },
   });
 
+  // server.route({
+  //   method: "DELETE",
+  //   path: "/sports/{id}",
+  //   handler: async (request, h) => {
+  //     return await fetch(`${BASE_URL}matches/${request.params.id}`, {
+  //       method: "DELETE",
+  //     }).then(() => "Element was deleted successfully");
+  //   },
+  // });
+
   server.route({
     method: "POST",
-    // path: "https://664708a751e227f23ab0ca7d.mockapi.io/matches",
-    path: "/sports/add-match",
+    path: "/submit",
     handler: async (request, h) => {
-      return await createMatch(match);
-      // return await createMatch(match).then(() => getSportData());
-      // return request.payload;
+      const newMatch = request.payload;
+      return await fetch(`${BASE_URL}matches`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newMatch),
+      }).then((response) => response.json());
     },
-  }),
-    await server.start();
+  });
+
+  server.route({
+    method: "GET",
+    path: "/",
+    handler: (request, h) => {
+      return `
+            <html>
+                <head>
+                    <title>Form Submission</title>
+                </head>
+                <body>
+                    <form id="myForm">
+                        <label for="sport_id">Sport ID:</label>
+                        <input type="number" id="sport_id" name="sport_id"><br><br>
+                        <label for="match_name">Match Name:</label>
+                        <input type="text" id="match_name" name="match_name"><br><br>
+                        <label for="match_start_date">Match Start Date:</label>
+                        <input type="date" id="match_start_date" name="match_start_date"><br><br>
+                        <label for="scores">Scores:</label>
+                        <input type="text" id="scores" name="scores"><br><br>
+                        <button type="submit">Submit</button>
+                    </form>
+                    <script>
+                        document.getElementById('myForm').addEventListener('submit', async function(event) {
+                            event.preventDefault();
+                            const formData = new FormData(event.target);
+                            const data = Object.fromEntries(formData.entries());
+
+                            const response = await fetch('/submit', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify(data)
+                            });
+
+                            const result = await response.json();
+                            console.log("result", result);
+                        });
+                    </script>
+                </body>
+            </html>
+        `;
+    },
+  });
+
+  await server.start();
 };
 
 process.on("unhandledRejection", (err) => {
